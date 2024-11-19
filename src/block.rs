@@ -1,6 +1,6 @@
 use super::*;
-use crate::transaction::Transaction;
 use bincode::serialize;
+use transaction::Transaction;
 use sha2::{Sha256, Digest};
 use merkle_cbt::merkle_tree::Merge;
 use merkle_cbt::merkle_tree::CBMT;
@@ -14,11 +14,11 @@ const TARGET_HEXS: usize = 4;
 #[derive(Clone, Debug,Serialize, Deserialize)]
 pub struct Block {
     timestamp: u128,
-    transactions: String,
+    transactions: Vec<Transaction>,
     prev_block_hash: String,
     hash: String,
     nonce: i32,
-    height: usize,
+    height: i32,
 }
 
 impl Block {
@@ -30,19 +30,19 @@ impl Block {
         self.prev_block_hash.clone()
     }
 
-    pub fn get_transactions(&self) -> String {
-        self.transactions.clone()
+    pub fn get_transactions(&self) -> &Vec<Transaction> {
+        &self.transactions
     }
 
-    pub fn get_height(&self) -> usize {
+    pub fn get_height(&self) -> i32 {
         self.height
     }
 
     /// NewBlock creates and returns Block
     pub fn new_block(
-        data: String,
+        data: Vec<Transaction>,
         prev_block_hash: String,
-        height: usize,
+        height: i32,
     ) -> Result<Block> {
         let timestamp = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)?
@@ -60,8 +60,8 @@ impl Block {
     }
 
     /// NewGenesisBlock creates and returns genesis Block
-    pub fn new_genesis_block() -> Block {
-        Block::new_block(String::from("Gensis block"), String::new(), 0).unwrap()
+    pub fn new_genesis_block(coinbase: Transaction) -> Block {
+        Block::new_block(vec![coinbase], String::new(), 0).unwrap()
     }
 
     /// Run performs a proof-of-work
@@ -80,16 +80,16 @@ impl Block {
         Ok(())
     }
 
-    /// HashTransactions returns a hash of the transactions in the block
-    // fn hash_transactions(&self) -> Result<Vec<u8>> {
-    //     let mut transactions = Vec::new();
-    //     for tx in &self.transactions {
-    //         transactions.push(tx.hash()?.as_bytes().to_owned());
-    //     }
-    //     let tree = CBMT::<Vec<u8>, MergeVu8>::build_merkle_tree(&transactions);
-    //
-    //     Ok(tree.root())
-    // }
+    // HashTransactions returns a hash of the transactions in the block
+    fn hash_transactions(&self) -> Result<Vec<u8>> {
+        let mut transactions = Vec::new();
+        for tx in &self.transactions {
+            transactions.push(tx.hash()?.as_bytes().to_owned());
+        }
+        let tree = CBMT::<Vec<u8>, MergeVu8>::build_merkle_tree(&transactions);
+    
+        Ok(tree.root())
+    }
 
     fn prepare_hash_data(&self) -> Result<Vec<u8>> {
         let content = (
@@ -116,4 +116,20 @@ impl Block {
         Ok(hex_result[0..TARGET_HEXS] == String::from_utf8(vec1)?)
     }
     
+}
+
+struct MergeVu8 {}
+
+impl Merge for MergeVu8 {
+    type Item = Vec<u8>;
+    fn merge(left: &Self::Item, right: &Self::Item) -> Self::Item {
+        let mut hasher = Sha256::new();
+        let mut data: Vec<u8> = left.clone();
+        data.append(&mut right.clone());
+        sha2::Digest::update(&mut hasher,&data);
+        let mut re: [u8; 32] = [0; 32];
+        let result = hasher.finalize();
+        re.copy_from_slice(&result);
+        re.to_vec()
+    }
 }
