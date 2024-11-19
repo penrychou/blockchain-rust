@@ -3,6 +3,9 @@ use crate::errors::Result;
 use log::{debug, info};
 use bincode::{deserialize, serialize};
 use crate::transaction::Transaction;
+use std::collections::HashMap;
+use crate::transaction::TXOutputs;
+use failure::format_err;
 
 #[derive(Debug,Clone)]
 pub struct Blockchain{
@@ -91,8 +94,70 @@ impl Blockchain {
         Ok(last_block.get_height())
     }
 
+    /// FindUTXO finds and returns all unspent transaction outputs
+    pub fn find_UTXO(&self) -> HashMap<String, TXOutputs> {
+        let mut utxos: HashMap<String, TXOutputs> = HashMap::new();
+        let mut spend_txos: HashMap<String, Vec<i32>> = HashMap::new();
+
+        for block in self.iter() {
+            for tx in block.get_transactions() {
+                for index in 0..tx.vout.len() {
+                    if let Some(ids) = spend_txos.get(&tx.id) {
+                        if ids.contains(&(index as i32)) {
+                            continue;
+                        }
+                    }
+
+                    match utxos.get_mut(&tx.id) {
+                        Some(v) => {
+                            v.outputs.push(tx.vout[index].clone());
+                        }
+                        None => {
+                            utxos.insert(
+                                tx.id.clone(),
+                                TXOutputs {
+                                    outputs: vec![tx.vout[index].clone()],
+                                },
+                            );
+                        }
+                    }
+                }
+
+                if !tx.is_coinbase() {
+                    for i in &tx.vin {
+                        match spend_txos.get_mut(&i.txid) {
+                            Some(v) => {
+                                v.push(i.vout);
+                            }
+                            None => {
+                                spend_txos.insert(i.txid.clone(), vec![i.vout]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        utxos
+    }
+
+    /// FindTransaction finds a transaction by its ID
+    pub fn find_transacton(&self, id: &str) -> Result<Transaction> {
+        for b in self.iter() {
+            for tx in b.get_transactions() {
+                if tx.id == id {
+                    return Ok(tx.clone());
+                }
+            }
+        }
+        Err(format_err!("Transaction is not found"))
+    }
+
     pub fn iter(&self) -> BlockchainIter {
-        BlockchainIter{current_hash: self.current_hash.clone(), bc: &self, }
+        BlockchainIter{
+            current_hash: self.current_hash.clone(),
+            bc: &self, 
+        }
     }
 
 }

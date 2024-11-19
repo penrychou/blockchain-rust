@@ -16,6 +16,12 @@ pub struct TXOutput {
     pub script_pub_key: String,
 }
 
+// TXOutputs collects TXOutput
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TXOutputs {
+    pub outputs: Vec<TXOutput>,
+}
+
 /// Transaction represents a Bitcoin transaction
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transaction {
@@ -69,7 +75,7 @@ impl Transaction {
 
     }
 
-    pub fn is_coinbase(&mut self) -> bool {
+    pub fn is_coinbase(&self) -> bool {
         self.vin.len()==1 && self.vin[0].txid.is_empty() && self.vin[0].vout == -1
     }
 }
@@ -83,5 +89,28 @@ impl TXInput{
 impl TXOutput{
     pub fn can_be_unlock_with(&self, unlocking_data: &str) -> bool {
         self.script_pub_key == unlocking_data
+    }
+
+    
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_signature() {
+        // let mut ws = Wallets::new().unwrap();
+        // let wa1 = ws.create_wallet();
+        // let w = ws.get_wallet(&wa1).unwrap().clone();
+        // ws.save_all().unwrap();
+        // drop(ws);
+
+        // let data = String::from("test");
+        // let tx = Transaction::new_coinbase(wa1, data).unwrap();
+        // assert!(tx.is_coinbase());
+
+        // let signature = ed25519::signature(tx.id.as_bytes(), &w.secret_key);
+        // assert!(ed25519::verify(tx.id.as_bytes(), &w.public_key, &signature));
     }
 }
