@@ -43,6 +43,13 @@ impl Cli {
             )
             .get_matches();
 
+        
+
+        if let Some(_) = matches.subcommand_matches("printchain") {
+            println!("printchain...");
+            cmd_print_chain()?;
+        }
+
         if let Some(ref matches) = matches.subcommand_matches("create") {
             if let Some(address) = matches.get_one::<String>("ADDRESS") {
                 cmd_create_blockchain(address)?;
@@ -84,10 +91,6 @@ impl Cli {
             } else {
                 cmd_send(from, to, amount, false)?;
             }
-
-            if let Some(_) = matches.subcommand_matches("printchain") {
-                cmd_print_chain()?;
-            }
         }
         Ok(())
     }
@@ -97,11 +100,9 @@ fn cmd_send(from: &str, to: &str, amount: i32, mine_now: bool) -> Result<()> {
     let mut bc = Blockchain::new()?;
 
     let tx = Transaction::new_UTXO(from,to,amount,&bc)?;
-    let lasthash = bc.get_db().get("LAST")?.unwrap();
 
-    let block = bc.get_block(&String::from_utf8(lasthash.to_vec())?)?;
-    // add tx to block
-    bc.add_block(block);
+    bc.add_block_with_tx(vec![tx]);
+    
     println!("success!");
     Ok(())
 }
@@ -117,6 +118,8 @@ fn cmd_get_balance(address: &str) -> Result<i32> {
     let bc = Blockchain::new()?;
     let address = String::from(address);
     let utxos = bc.find_UTXO(&address);
+
+    println!("{:?}",utxos);
 
     let mut balance = 0;
     for out in utxos {

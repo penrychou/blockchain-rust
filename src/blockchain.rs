@@ -64,6 +64,15 @@ impl Blockchain {
     }
 
 
+    pub fn add_block_with_tx(&mut self, transactions: Vec<Transaction>) ->Result<()>{
+        let lasthash = self.db.get("LAST")?.unwrap();
+
+        let new_block = Block::new_block(transactions,String::from_utf8(lasthash.to_vec())?,4)?;
+        self.db.insert(new_block.get_hash(),bincode::serialize(&new_block)?)?;
+        self.db.insert("LAST",new_block.get_hash().as_bytes());
+        Ok(())
+    }
+
     pub fn add_block(&mut self, block: Block) ->Result<()>{
         let data = serialize(&block)?;
         if let Some(_) = self.db.get(block.get_hash())? {
@@ -79,6 +88,8 @@ impl Blockchain {
         }
         Ok(())
     }
+
+
 
     // GetBlock finds a block by its hash and returns it
     pub fn get_block(&self, block_hash: &str) -> Result<Block> {
@@ -142,6 +153,8 @@ impl Blockchain {
     pub fn find_UTXO(&self,address: &str) -> Vec<TXOutput> {
         let mut utxos = Vec::<TXOutput>::new();
         let mut unspend_txs = self.find_unspent_transactions(address);
+
+        println!("{:?}",unspend_txs);
 
         for tx in unspend_txs {
             for out in &tx.vout {
