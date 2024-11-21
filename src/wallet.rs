@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use super::*;
 use bincode::{deserialize, serialize};
 use serde::{Deserialize, Serialize};
@@ -5,7 +6,8 @@ use bitcoincash_addr::*;
 use sha2::{Sha256, Digest};
 use bitcoin_hashes::{ripemd160, Hash};
 use ed25519_dalek::{SigningKey, VerifyingKey, Signer};
-use rand_core::OsRng; 
+use log::info;
+use rand_core::OsRng;
 
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -20,7 +22,7 @@ impl Wallet {
     fn new() -> Self {
 
         // 生成随机的ED25519密钥对
-        let signing_key = SigningKey::generate(&mut OsRng); ;
+        let signing_key = SigningKey::generate(&mut OsRng);
         
         // 获取公钥和私钥
         let public_key = signing_key.verifying_key().as_bytes().to_vec();
@@ -71,11 +73,71 @@ impl Wallet {
     }
 
     /// GetAddress returns wallet address
-    pub fn get_address(&self) -> &String {
-        &self.address
+    pub fn get_address(&self) -> String {
+        String::from(&self.address)
     }
 }
 
+
+pub struct Wallets {
+    wallets: HashMap<String, Wallet>,
+}
+
+impl Wallets {
+    /// NewWallets creates Wallets and fills it from a file if it exists
+    pub fn new() -> Result<Wallets> {
+        let mut wlt = Wallets {
+            wallets: HashMap::<String, Wallet>::new(),
+        };
+        let db = sled::open("data/wallets")?;
+
+        for item in db.into_iter() {
+            let i = item?;
+            let address = String::from_utf8(i.0.to_vec())?;
+            let wallet = deserialize(&i.1.to_vec())?;
+            wlt.wallets.insert(address, wallet);
+        }
+        drop(db);
+        Ok(wlt)
+    }
+
+    /// CreateWallet adds a Wallet to Wallets
+    pub fn create_wallet(&mut self) -> String {
+        let wallet = Wallet::new();
+        let address = wallet.get_address();
+        self.wallets.insert(address.clone(), wallet);
+        info!("create wallet: {}", address);
+        address
+    }
+
+    /// GetAddresses returns an array of addresses stored in the wallet file
+    pub fn get_all_addresses(&self) -> Vec<String> {
+        let mut addresses = Vec::<String>::new();
+        for (address, _) in &self.wallets {
+            addresses.push(address.clone());
+        }
+        addresses
+    }
+
+    /// GetWallet returns a Wallet by its address
+    pub fn get_wallet(&self, address: &str) -> Option<&Wallet> {
+        self.wallets.get(address)
+    }
+
+    /// SaveToFile saves wallets to a file
+    pub fn save_all(&self) -> Result<()> {
+        let db = sled::open("data/wallets")?;
+
+        for (address, wallet) in &self.wallets {
+            let data = serialize(wallet)?;
+            db.insert(address, data)?;
+        }
+
+        db.flush()?;
+        drop(db);
+        Ok(())
+    }
+}
 #[cfg(test)]
 mod test {
     use super::*;
@@ -87,5 +149,37 @@ mod test {
         let w2 = Wallet::new();
         println!("Bitcoin Address2: {}", w2.get_address());
         assert_ne!(w1, w2);
+    }
+
+    #[test]
+    fn test_wallets() {
+        let mut ws = Wallets::new().unwrap();
+        let wa1 = ws.create_wallet();
+        let w1 = ws.get_wallet(&wa1).unwrap().clone();
+        ws.save_all().unwrap();
+
+        let ws2 = Wallets::new().unwrap();
+        let w2 = ws2.get_wallet(&wa1).unwrap();
+        assert_eq!(&w1, w2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_wallets_not_exist() {
+        let w3 = Wallet::new();
+        let ws2 = Wallets::new().unwrap();
+        ws2.get_wallet(&w3.get_address()).unwrap();
+    }
+
+    #[test]
+    fn test_signature() {
+        let w = Wallet::new();
+        let sk = SigningKey::generate(&mut OsRng);
+        let vk = sk.verifying_key();
+        let signature = sk.sign("test".as_bytes());
+        sk.verify(
+            "test".as_bytes(),
+            &signature
+        ).unwrap();
     }
 }
