@@ -2,9 +2,9 @@ use crate::block::Block;
 use crate::errors::Result;
 use log::{debug, info};
 use bincode::{deserialize, serialize};
-use crate::transaction::{TXOutput, Transaction};
+use crate::transaction::Transaction;
+use crate::tx::{TXInput,TXOutput,TXOutputs};
 use std::collections::HashMap;
-use crate::transaction::TXOutputs;
 use failure::format_err;
 
 #[derive(Debug,Clone)]

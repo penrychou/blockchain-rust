@@ -1,3 +1,4 @@
+use super::*;
 use clap::{arg, Command};
 use crate::blockchain::Blockchain;
 use crate::errors::Result;

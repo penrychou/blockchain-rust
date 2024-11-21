@@ -4,6 +4,7 @@ use crate::cli::Cli;
 mod block;
 mod blockchain;
 mod errors;
+mod tx;
 mod transaction;
 mod cli;
 mod wallet;
