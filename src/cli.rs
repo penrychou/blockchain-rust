@@ -6,6 +6,7 @@ use std::process::exit;
 use bincode::deserialize;
 use crate::block::Block;
 use crate::transaction::Transaction;
+use crate::wallet::Wallets;
 
 pub struct Cli{}
 
@@ -49,6 +50,14 @@ impl Cli {
         if let Some(_) = matches.subcommand_matches("printchain") {
             println!("printchain...");
             cmd_print_chain()?;
+        }
+
+        if let Some(_) = matches.subcommand_matches("createwallet") {
+            println!("address: {}", cmd_create_wallet()?);
+        }
+
+        if let Some(_) = matches.subcommand_matches("listaddresses") {
+            cmd_list_address()?;
         }
 
         if let Some(ref matches) = matches.subcommand_matches("create") {
@@ -114,6 +123,14 @@ fn cmd_create_blockchain(address: &str) -> Result<()> {
     println!("create blockchain");
     Ok(())
 }
+
+fn cmd_create_wallet() -> Result<String> {
+    let mut ws = Wallets::new()?;
+    let address = ws.create_wallet();
+    ws.save_all()?;
+    Ok(address)
+}
+
 fn cmd_get_balance(address: &str) -> Result<i32> {
 
     let bc = Blockchain::new()?;
@@ -133,6 +150,16 @@ fn cmd_print_chain() -> Result<()> {
     let bc = Blockchain::new()?;
     for b in bc.iter() {
         println!("{:#?}", b);
+    }
+    Ok(())
+}
+
+fn cmd_list_address() -> Result<()> {
+    let ws = Wallets::new()?;
+    let addresses = ws.get_all_addresses();
+    println!("addresses: ");
+    for ad in addresses {
+        println!("{}", ad);
     }
     Ok(())
 }
